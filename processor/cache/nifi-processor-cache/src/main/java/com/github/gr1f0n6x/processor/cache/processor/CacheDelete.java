@@ -30,6 +30,7 @@ public class CacheDelete extends AbstractProcessor {
         List<PropertyDescriptor> props = new ArrayList<>();
         props.add(Properties.CACHE);
         props.add(Properties.KEY_FIELD);
+        props.add(Properties.SERIALIZER);
         descriptors = Collections.unmodifiableList(props);
 
         Set<Relationship> relations = new HashSet<>();
@@ -48,14 +49,6 @@ public class CacheDelete extends AbstractProcessor {
         return descriptors;
     }
 
-    private Serializer<String> serializer;
-
-    @Override
-    protected void init(ProcessorInitializationContext context) {
-        super.init(context);
-        serializer = new StringSerializer();
-    }
-
     @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
         final FlowFile flowFile = session.get();
@@ -65,6 +58,7 @@ public class CacheDelete extends AbstractProcessor {
 
         final Cache cache = context.getProperty(Properties.CACHE).asControllerService(Cache.class);
         final String keyField = context.getProperty(Properties.KEY_FIELD).getValue();
+        final Serializer serializer = context.getProperty(Properties.SERIALIZER).asControllerService(Serializer.class);
 
         try {
             session.read(flowFile, in -> {

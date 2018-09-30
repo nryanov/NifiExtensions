@@ -28,20 +28,13 @@ public class CachePut extends AbstractProcessor {
         List<PropertyDescriptor> props = new ArrayList<>();
         props.add(Properties.CACHE);
         props.add(Properties.KEY_FIELD);
+        props.add(Properties.SERIALIZER);
         descriptors = Collections.unmodifiableList(props);
 
         Set<Relationship> relations = new HashSet<>();
         relations.add(SUCCESS);
         relations.add(Relationships.FAILURE);
         relationships = Collections.unmodifiableSet(relations);
-    }
-
-    private Serializer<String> serializer;
-
-    @Override
-    protected void init(ProcessorInitializationContext context) {
-        super.init(context);
-        serializer = new StringSerializer();
     }
 
     @Override
@@ -63,6 +56,7 @@ public class CachePut extends AbstractProcessor {
 
         final Cache cache = context.getProperty(Properties.CACHE).asControllerService(Cache.class);
         final String keyField = context.getProperty(Properties.KEY_FIELD).getValue();
+        final Serializer serializer = context.getProperty(Properties.SERIALIZER).asControllerService(Serializer.class);
 
         try {
             session.read(flowFile, in -> {

@@ -30,6 +30,8 @@ public class CacheGet extends AbstractProcessor {
         List<PropertyDescriptor> props = new ArrayList<>();
         props.add(Properties.CACHE);
         props.add(Properties.KEY_FIELD);
+        props.add(Properties.SERIALIZER);
+        props.add(Properties.DESERIALIZER);
         descriptors = Collections.unmodifiableList(props);
 
         Set<Relationship> relations = new HashSet<>();
@@ -48,16 +50,6 @@ public class CacheGet extends AbstractProcessor {
         return descriptors;
     }
 
-    private Serializer<String> serializer;
-    private Deserializer<String> deserializer;
-
-    @Override
-    protected void init(ProcessorInitializationContext context) {
-        super.init(context);
-        serializer = new StringSerializer();
-        deserializer = new StringDeserializer();
-    }
-
     @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
         final FlowFile flowFile = session.get();
@@ -67,6 +59,9 @@ public class CacheGet extends AbstractProcessor {
 
         final Cache cache = context.getProperty(Properties.CACHE).asControllerService(Cache.class);
         final String keyField = context.getProperty(Properties.KEY_FIELD).getValue();
+        final Serializer serializer = context.getProperty(Properties.SERIALIZER).asControllerService(Serializer.class);
+        // TODO: add type property?
+        final Deserializer<String> deserializer = context.getProperty(Properties.DESERIALIZER).asControllerService(Deserializer.class);
 
         try {
             FlowFile result = session.write(flowFile, (in, out) -> {
