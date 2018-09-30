@@ -1,9 +1,6 @@
 package com.github.gr1f0n6x.service.redispool;
 
-import com.github.gr1f0n6x.service.common.Deserializer;
-import com.github.gr1f0n6x.service.common.Serializer;
-import com.github.gr1f0n6x.service.common.StringDeserializer;
-import com.github.gr1f0n6x.service.common.StringSerializer;
+import com.github.gr1f0n6x.service.common.*;
 import com.github.gr1f0n6x.service.redispool.service.RedisCommandsService;
 import com.github.gr1f0n6x.service.redispool.service.RedisPoolService;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -75,7 +72,7 @@ public class RedisCommandsTest {
             runner.setProperty(commands, RedisCommandsService.REDIS_CONNECTION_POOL, "redis-pool");
             runner.enableControllerService(commands);
 
-            runner.setProperty(Processor.REDIS_COMMANDS, "redis-commands");
+            runner.setProperty(Processor.CACHE, "redis-commands");
             runner.enqueue("data");
             runner.run();
 
@@ -89,9 +86,9 @@ public class RedisCommandsTest {
     }
 
     public static class Processor extends AbstractProcessor {
-        public static final PropertyDescriptor REDIS_COMMANDS = new PropertyDescriptor.Builder()
-                .name("Redis commands")
-                .identifiesControllerService(RedisCommands.class)
+        public static final PropertyDescriptor CACHE = new PropertyDescriptor.Builder()
+                .name("Cache")
+                .identifiesControllerService(Cache.class)
                 .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
                 .required(true)
                 .build();
@@ -101,7 +98,7 @@ public class RedisCommandsTest {
 
         @Override
         protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
-            return Collections.singletonList(REDIS_COMMANDS);
+            return Collections.singletonList(CACHE);
         }
 
         @Override
@@ -119,7 +116,7 @@ public class RedisCommandsTest {
             final Serializer<String> stringSerializer = new StringSerializer();
             final Deserializer<String> stringDeserializer = new StringDeserializer();
 
-            final RedisCommands cacheClient = context.getProperty(REDIS_COMMANDS).asControllerService(RedisCommands.class);
+            final RedisCommands cacheClient = context.getProperty(CACHE).asControllerService(RedisCommands.class);
 
 
             try {
