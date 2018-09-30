@@ -28,6 +28,7 @@
 
     <modules>
         <module>redispool</module>
+        <module>common</module>
     </modules>
 
     <dependencies>
