@@ -10,7 +10,13 @@
     <modelVersion>4.0.0</modelVersion>
 
     <artifactId>common</artifactId>
-    <packaging>jar</packaging>
+    <packaging>pom</packaging>
+    <modules>
+        <module>nifi-service-common</module>
+        <module>nifi-service-common-nar</module>
+        <module>nifi-service-common-api</module>
+        <module>nifi-service-common-api-nar</module>
+    </modules>
 
 
 </project>

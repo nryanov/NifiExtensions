@@ -11,6 +11,6 @@ public interface Cache extends ControllerService {
 
     <K> Long delete(K key, Serializer<K> serializer) throws IOException;
 
-    <K, V> V get(K key, Serializer<K> kSerializer, Deserializer<V> vDeserializer) throws IOException, ClassNotFoundException;
+    <K, V> V get(K key, Serializer<K> kSerializer, Deserializer<V> vDeserializer) throws IOException;
 
 }

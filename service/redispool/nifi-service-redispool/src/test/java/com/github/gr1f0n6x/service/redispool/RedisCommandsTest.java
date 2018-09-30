@@ -18,9 +18,10 @@ import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 import redis.embedded.RedisServer;
+
 import static org.junit.Assert.*;
 
-import java.io.IOException;
+import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.channels.SocketChannel;
@@ -73,7 +74,7 @@ public class RedisCommandsTest {
             runner.enableControllerService(commands);
 
             runner.setProperty(Processor.CACHE, "redis-commands");
-            runner.enqueue("data");
+            runner.enqueue("{\"key\":1, \"value\": \"data\"}");
             runner.run();
 
         } catch (InitializationException e) {
@@ -115,9 +116,7 @@ public class RedisCommandsTest {
 
             final Serializer<String> stringSerializer = new StringSerializer();
             final Deserializer<String> stringDeserializer = new StringDeserializer();
-
             final RedisCommands cacheClient = context.getProperty(CACHE).asControllerService(RedisCommands.class);
-
 
             try {
                 String key = "key";
@@ -133,10 +132,8 @@ public class RedisCommandsTest {
 
                 session.transfer(flowFile, SUCCESS);
             } catch (Exception e) {
-                e.printStackTrace();
                 session.transfer(flowFile, FAILURE);
             }
-
         }
     }
 }
