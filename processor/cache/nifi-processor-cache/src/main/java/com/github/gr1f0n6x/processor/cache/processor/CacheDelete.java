@@ -6,7 +6,6 @@ import com.github.gr1f0n6x.processor.cache.utils.Properties;
 import com.github.gr1f0n6x.processor.cache.utils.Relationships;
 import com.github.gr1f0n6x.service.common.Cache;
 import com.github.gr1f0n6x.service.common.Serializer;
-import com.github.gr1f0n6x.service.common.StringSerializer;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;

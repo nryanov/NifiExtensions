@@ -26,7 +26,7 @@
         </dependency>
         <dependency>
             <groupId>com.github.gr1f0n6x</groupId>
-            <artifactId>common</artifactId>
+            <artifactId>nifi-service-common-api</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
         <dependency>

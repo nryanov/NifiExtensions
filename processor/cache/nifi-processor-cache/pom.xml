@@ -31,6 +31,11 @@
             <artifactId>nifi-service-common</artifactId>
             <version>1.0-SNAPSHOT</version>
         </dependency>
+        <dependency>
+            <groupId>com.github.gr1f0n6x</groupId>
+            <artifactId>nifi-service-redispool</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
     </dependencies>
 
 </project>

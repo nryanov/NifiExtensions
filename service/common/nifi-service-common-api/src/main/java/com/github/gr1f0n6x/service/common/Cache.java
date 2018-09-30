@@ -1,9 +1,13 @@
 package com.github.gr1f0n6x.service.common;
 
+import org.apache.nifi.annotation.documentation.CapabilityDescription;
+import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.controller.ControllerService;
 
 import java.io.IOException;
 
+@Tags({"client", "cache"})
+@CapabilityDescription("")
 public interface Cache extends ControllerService {
     <K> boolean exists(K key, Serializer<K> serializer) throws IOException;
 

@@ -4,6 +4,7 @@ import com.github.gr1f0n6x.service.common.*;
 import com.github.gr1f0n6x.service.redispool.service.RedisCommandsService;
 import com.github.gr1f0n6x.service.redispool.service.RedisPoolService;
 import org.apache.nifi.components.PropertyDescriptor;
+import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
@@ -25,6 +26,7 @@ import java.io.*;
 import java.net.InetSocketAddress;
 import java.net.StandardSocketOptions;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.util.*;
 
 public class RedisCommandsTest {
@@ -134,6 +136,20 @@ public class RedisCommandsTest {
             } catch (Exception e) {
                 session.transfer(flowFile, FAILURE);
             }
+        }
+    }
+
+    public static class StringSerializer extends AbstractControllerService implements Serializer<String> {
+        @Override
+        public void serialize(String o, OutputStream out) throws IOException {
+            out.write(o.getBytes(StandardCharsets.UTF_8));
+        }
+    }
+
+    public static class StringDeserializer extends AbstractControllerService implements Deserializer<String> {
+        @Override
+        public String deserialize(byte[] bytes) {
+            return bytes != null ? new String(bytes, StandardCharsets.UTF_8) : null;
         }
     }
 }

@@ -22,7 +22,6 @@
             <groupId>redis.clients</groupId>
             <artifactId>jedis</artifactId>
             <version>${jedis.version}</version>
-            <scope>provided</scope>
         </dependency>
         <dependency>
             <groupId>com.github.gr1f0n6x</groupId>
