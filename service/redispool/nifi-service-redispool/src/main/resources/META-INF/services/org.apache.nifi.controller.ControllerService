@@ -12,4 +12,5 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-com.github.gr1f0n6x.service.redispool.RedisPoolService
+com.github.gr1f0n6x.service.redispool.service.RedisPoolService
+com.github.gr1f0n6x.service.redispool.service.RedisCommandsService

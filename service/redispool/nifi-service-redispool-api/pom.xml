@@ -23,5 +23,10 @@
             <artifactId>jedis</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>com.github.gr1f0n6x</groupId>
+            <artifactId>common</artifactId>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 </project>

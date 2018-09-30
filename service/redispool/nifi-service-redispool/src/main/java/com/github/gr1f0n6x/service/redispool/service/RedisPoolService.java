@@ -1,5 +1,6 @@
-package com.github.gr1f0n6x.service.redispool;
+package com.github.gr1f0n6x.service.redispool.service;
 
+import com.github.gr1f0n6x.service.redispool.RedisPool;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnDisabled;
@@ -8,13 +9,11 @@ import org.apache.nifi.annotation.lifecycle.OnShutdown;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.controller.ConfigurationContext;
-import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.util.StandardValidators;
 import redis.clients.jedis.Jedis;
 import redis.clients.jedis.JedisPool;
 import redis.clients.jedis.JedisPoolConfig;
 
-import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -135,8 +134,10 @@ public class RedisPoolService extends AbstractControllerService implements Redis
     }
 
     @OnDisabled
-    public void disable(final ConfigurationContext context) {
-        pool.close();
+    public void disable() {
+        if (pool != null) {
+            pool.close();
+        }
     }
 
     @OnShutdown
@@ -145,35 +146,7 @@ public class RedisPoolService extends AbstractControllerService implements Redis
     }
 
     @Override
-    public boolean exists(String key) {
-        try (Jedis client = pool.getResource()) {
-            return client.exists(key.getBytes());
-        }
-    }
-
-    @Override
-    public void set(String key, FlowFile flowFile) throws IOException {
-        try (Jedis client = pool.getResource(); ByteArrayOutputStream bout = new ByteArrayOutputStream()) {
-            ObjectOutputStream out = new ObjectOutputStream(bout);
-            out.writeObject(flowFile);
-            out.flush();
-            client.set(key.getBytes(), bout.toByteArray());
-        }
-    }
-
-    @Override
-    public void delete(String key) {
-        try (Jedis client = pool.getResource()) {
-            client.del(key.getBytes());
-        }
-    }
-
-    @Override
-    public FlowFile get(String key) throws IOException, ClassNotFoundException {
-        try (Jedis client = pool.getResource();
-             ByteArrayInputStream bin = new ByteArrayInputStream(client.get(key.getBytes()))) {
-            ObjectInputStream in = new ObjectInputStream(bin);
-            return (FlowFile) in.readObject();
-        }
+    public Jedis getConnection() {
+        return pool.getResource();
     }
 }

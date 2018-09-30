@@ -1,16 +1,13 @@
 package com.github.gr1f0n6x.service.redispool;
 
 import org.apache.nifi.controller.ControllerService;
-import org.apache.nifi.flowfile.FlowFile;
+import redis.clients.jedis.Jedis;
 
-import java.io.IOException;
 
+/**
+ * Interface which allow to get redis connection.
+ * Clients should control the closing of returned connection by themselves.
+ */
 public interface RedisPool extends ControllerService {
-    boolean exists(String key);
-
-    void set(String key, FlowFile flowFile) throws IOException;
-
-    void delete(String key);
-
-    FlowFile get(String key) throws IOException, ClassNotFoundException;
+    Jedis getConnection();
 }
