@@ -9,6 +9,7 @@ import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 
@@ -24,6 +25,7 @@ import static com.github.gr1f0n6x.processor.cache.utils.Relationships.SUCCESS;
 public class CacheGet extends AbstractProcessor {
     private static List<PropertyDescriptor> descriptors;
     private static Set<Relationship> relationships;
+    private ObjectMapper mapper;
 
     static {
         List<PropertyDescriptor> props = new ArrayList<>();
@@ -50,12 +52,19 @@ public class CacheGet extends AbstractProcessor {
     }
 
     @Override
+    protected void init(ProcessorInitializationContext context) {
+        super.init(context);
+        mapper = new ObjectMapper();
+    }
+
+    @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
         final FlowFile flowFile = session.get();
         if (flowFile == null) {
             return;
         }
 
+        final ComponentLog logger = getLogger();
         final Cache cache = context.getProperty(Properties.CACHE).asControllerService(Cache.class);
         final String keyField = context.getProperty(Properties.KEY_FIELD).getValue();
         final Serializer serializer = context.getProperty(Properties.SERIALIZER).asControllerService(Serializer.class);
@@ -64,23 +73,25 @@ public class CacheGet extends AbstractProcessor {
 
         try {
             FlowFile result = session.write(flowFile, (in, out) -> {
-                BufferedInputStream bin = new BufferedInputStream(in);
-                BufferedOutputStream bout = new BufferedOutputStream(out);
-                ObjectMapper mapper = new ObjectMapper();
-                byte[] bytes = new byte[bin.available()];
-                bin.read(bytes);
-                JsonNode node = mapper.readTree(bytes);
+                try(BufferedInputStream bin = new BufferedInputStream(in);
+                BufferedOutputStream bout = new BufferedOutputStream(out)) {
+                    byte[] bytes = new byte[bin.available()];
+                    bin.read(bytes);
+                    JsonNode node = mapper.readTree(bytes);
 
-                if (node.hasNonNull(keyField)) {
-                    String value = cache.get(node.get(keyField).asText(), serializer, deserializer);
-                    bout.write(value.getBytes(StandardCharsets.UTF_8));
-                } else {
-                    session.transfer(flowFile, FAILURE);
+                    if (node.hasNonNull(keyField)) {
+                        String value = cache.get(node.get(keyField).asText(), serializer, deserializer);
+                        bout.write(value.getBytes(StandardCharsets.UTF_8));
+                    } else {
+                        logger.error("Flowfile {} does not have key field: {}", new Object[]{flowFile, keyField});
+                        //TODO: throe error
+                    }
                 }
             });
 
             session.transfer(result, SUCCESS);
         } catch (Exception e) {
+            logger.error(e.getLocalizedMessage());
             session.transfer(flowFile, FAILURE);
         }
     }

@@ -10,6 +10,7 @@ import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
+import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 
@@ -23,6 +24,7 @@ import static com.github.gr1f0n6x.processor.cache.utils.Relationships.*;
 public class CacheLookup extends AbstractProcessor {
     private static List<PropertyDescriptor> descriptors;
     private static Set<Relationship> relationships;
+    private ObjectMapper mapper;
 
     static {
         List<PropertyDescriptor> props = new ArrayList<>();
@@ -49,35 +51,46 @@ public class CacheLookup extends AbstractProcessor {
     }
 
     @Override
+    protected void init(ProcessorInitializationContext context) {
+        super.init(context);
+        mapper = new ObjectMapper();
+    }
+
+    @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
         final FlowFile flowFile = session.get();
         if (flowFile == null) {
             return;
         }
 
+        final ComponentLog logger = getLogger();
         final Cache cache = context.getProperty(Properties.CACHE).asControllerService(Cache.class);
         final String keyField = context.getProperty(Properties.KEY_FIELD).getValue();
         final Serializer serializer = context.getProperty(Properties.SERIALIZER).asControllerService(Serializer.class);
 
         try {
             session.read(flowFile, in -> {
-                BufferedInputStream bin = new BufferedInputStream(in);
-                ObjectMapper mapper = new ObjectMapper();
-                byte[] bytes = new byte[bin.available()];
-                bin.read(bytes);
-                JsonNode node = mapper.readTree(bytes);
+                try(BufferedInputStream bin = new BufferedInputStream(in)) {
+                    byte[] bytes = new byte[bin.available()];
+                    bin.read(bytes);
+                    JsonNode node = mapper.readTree(bytes);
 
-                if (node.hasNonNull(keyField)) {
-                    if (cache.exists(node.get(keyField).asText(), serializer)) {
-                        session.transfer(flowFile, EXIST);
+                    if (node.hasNonNull(keyField)) {
+                        if (cache.exists(node.get(keyField).asText(), serializer)) {
+//                            session.transfer(flowFile, EXIST);
+                        } else {
+//                            session.transfer(flowFile, NOT_EXIST);
+                        }
                     } else {
-                        session.transfer(flowFile, NOT_EXIST);
+                        logger.error("Flowfile {} does not have key field: {}", new Object[]{flowFile, keyField});
+                        //TODO: throw error
                     }
-                } else {
-                    session.transfer(flowFile, FAILURE);
                 }
             });
+
+            session.transfer(flowFile, EXIST);
         } catch (Exception e) {
+            logger.error(e.getLocalizedMessage());
             session.transfer(flowFile, FAILURE);
         }
     }
