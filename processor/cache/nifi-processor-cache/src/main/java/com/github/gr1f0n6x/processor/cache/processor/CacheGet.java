@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.gr1f0n6x.processor.cache.utils.Properties;
 import com.github.gr1f0n6x.processor.cache.utils.Relationships;
 import com.github.gr1f0n6x.service.common.*;
+import com.github.gr1f0n6x.service.common.deserializer.StringDeserializer;
+import com.github.gr1f0n6x.service.common.serializer.StringSerializer;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -67,9 +69,26 @@ public class CacheGet extends AbstractProcessor {
         final ComponentLog logger = getLogger();
         final Cache cache = context.getProperty(Properties.CACHE).asControllerService(Cache.class);
         final String keyField = context.getProperty(Properties.KEY_FIELD).getValue();
-        final Serializer serializer = context.getProperty(Properties.SERIALIZER).asControllerService(Serializer.class);
-        // TODO: add type property?
-        final Deserializer<String> deserializer = context.getProperty(Properties.DESERIALIZER).asControllerService(Deserializer.class);
+        String serializerType = context.getProperty(Properties.SERIALIZER).getValue();
+        String deserializerType = context.getProperty(Properties.DESERIALIZER).getValue();
+        Serializer<String> serializer;
+        Deserializer<String> deserializer;
+
+        if (Properties.STRING_SERIALIZER.getValue().equals(serializerType)) {
+            serializer = new StringSerializer();
+        } else {
+            logger.error("Serializer is incorrect");
+            session.transfer(flowFile, FAILURE);
+            return;
+        }
+
+        if (Properties.STRING_DESERIALIZER.getValue().equals(deserializerType)) {
+            deserializer = new StringDeserializer();
+        } else {
+            logger.error("Deserializer is incorrect");
+            session.transfer(flowFile, FAILURE);
+            return;
+        }
 
         try {
             FlowFile result = session.write(flowFile, (in, out) -> {
@@ -78,13 +97,14 @@ public class CacheGet extends AbstractProcessor {
                     byte[] bytes = new byte[bin.available()];
                     bin.read(bytes);
                     JsonNode node = mapper.readTree(bytes);
+                    FlowFile file = session.create(flowFile);
 
                     if (node.hasNonNull(keyField)) {
                         String value = cache.get(node.get(keyField).asText(), serializer, deserializer);
                         bout.write(value.getBytes(StandardCharsets.UTF_8));
                     } else {
                         logger.error("Flowfile {} does not have key field: {}", new Object[]{flowFile, keyField});
-                        //TODO: throe error
+                        session.transfer(file, FAILURE);
                     }
                 }
             });

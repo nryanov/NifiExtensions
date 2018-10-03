@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.gr1f0n6x.processor.cache.utils.Properties;
 import com.github.gr1f0n6x.processor.cache.utils.Relationships;
 import com.github.gr1f0n6x.service.common.*;
+import com.github.gr1f0n6x.service.common.serializer.StringSerializer;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -65,7 +66,16 @@ public class CachePut extends AbstractProcessor {
         final ComponentLog logger = getLogger();
         final Cache cache = context.getProperty(Properties.CACHE).asControllerService(Cache.class);
         final String keyField = context.getProperty(Properties.KEY_FIELD).getValue();
-        final Serializer serializer = context.getProperty(Properties.SERIALIZER).asControllerService(Serializer.class);
+        String serializerType = context.getProperty(Properties.SERIALIZER).getValue();
+        Serializer<String> serializer;
+
+        if (Properties.STRING_SERIALIZER.getValue().equals(serializerType)) {
+            serializer = new StringSerializer();
+        } else {
+            logger.error("Serializer is incorrect");
+            session.transfer(flowFile, FAILURE);
+            return;
+        }
 
         try {
             session.read(flowFile, in -> {
@@ -78,7 +88,6 @@ public class CachePut extends AbstractProcessor {
                         cache.set(node.get(keyField).asText(), node.asText(), serializer, serializer);
                     } else {
                         logger.error("Flowfile {} does not have key field: {}", new Object[]{flowFile, keyField});
-                        //TODO: throw error
                     }
                 }
             });

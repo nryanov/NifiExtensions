@@ -73,9 +73,8 @@ public class RedisCommandsService extends AbstractControllerService implements R
     @Override
     public <K> boolean exists(K key, Serializer<K> serializer) throws IOException {
         return execute(client -> {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            serializer.serialize(key, out);
-            return client.exists(out.toByteArray());
+            byte[] keyBytes = serializer.serialize(key);
+            return client.exists(keyBytes);
 
         });
     }
@@ -83,37 +82,31 @@ public class RedisCommandsService extends AbstractControllerService implements R
     @Override
     public <K, V> String set(K key, V value, Serializer<K> kSerializer, Serializer<V> vSerializer) throws IOException {
         return execute(client -> {
-            ByteArrayOutputStream keyBytes = new ByteArrayOutputStream();
-            ByteArrayOutputStream valueBytes = new ByteArrayOutputStream();
-
-            kSerializer.serialize(key, keyBytes);
-            vSerializer.serialize(value, valueBytes);
+            byte[] keyBytes = kSerializer.serialize(key);
+            byte[] valueBytes = vSerializer.serialize(value);
 
             if (ttl != -1L) {
-                client.expire(keyBytes.toByteArray(), Math.toIntExact(ttl));
+                client.expire(keyBytes, Math.toIntExact(ttl));
             }
 
-            return client.set(keyBytes.toByteArray(), valueBytes.toByteArray());
+            return client.set(keyBytes, valueBytes);
         });
     }
 
     @Override
     public <K> Long delete(K key, Serializer<K> serializer) throws IOException {
         return execute(client -> {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            serializer.serialize(key, out);
+            byte[] keyBytes = serializer.serialize(key);
 
-            return client.del(out.toByteArray());
+            return client.del(keyBytes);
         });
     }
 
     @Override
     public <K, V> V get(K key, Serializer<K> kSerializer, Deserializer<V> vDeserializer) throws IOException {
         return execute(client -> {
-            ByteArrayOutputStream out = new ByteArrayOutputStream();
-            kSerializer.serialize(key, out);
-
-            byte[] bytes = client.get(out.toByteArray());
+            byte[] keyBytes = kSerializer.serialize(key);
+            byte[] bytes = client.get(keyBytes);
 
             return vDeserializer.deserialize(bytes);
         });

@@ -18,4 +18,8 @@ public class Relationships {
     public static final Relationship NOT_EXIST = new Relationship.Builder()
             .name("not exist")
             .build();
+
+    public static final Relationship ORIGINAL = new Relationship.Builder()
+            .name("original")
+            .build();
 }
