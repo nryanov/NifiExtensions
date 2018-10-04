@@ -1,13 +1,9 @@
 package com.github.gr1f0n6x.processor.cache.processor;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.github.gr1f0n6x.processor.cache.utils.Properties;
-import com.github.gr1f0n6x.processor.cache.utils.Relationships;
 import com.github.gr1f0n6x.service.common.Cache;
+import com.github.gr1f0n6x.service.common.Deserializer;
 import com.github.gr1f0n6x.service.common.Serializer;
-import com.github.gr1f0n6x.service.common.serializer.StringSerializer;
-import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
@@ -18,26 +14,23 @@ import org.apache.nifi.processor.exception.ProcessException;
 import java.io.BufferedInputStream;
 import java.util.*;
 
-import static com.github.gr1f0n6x.processor.cache.utils.Relationships.FAILURE;
-import static com.github.gr1f0n6x.processor.cache.utils.Relationships.SUCCESS;
 
 @Tags({"cache", "delete", "json"})
-@InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
-public class CacheDelete extends AbstractProcessor {
+public class CacheDelete extends CacheBase {
     private static List<PropertyDescriptor> descriptors;
     private static Set<Relationship> relationships;
-    private ObjectMapper mapper;
 
     static {
         List<PropertyDescriptor> props = new ArrayList<>();
-        props.add(Properties.CACHE);
-        props.add(Properties.KEY_FIELD);
-        props.add(Properties.SERIALIZER);
+        props.add(CACHE);
+        props.add(KEY_FIELD);
+        props.add(SERIALIZER);
+        props.add(DESERIALIZER);
         descriptors = Collections.unmodifiableList(props);
 
         Set<Relationship> relations = new HashSet<>();
-        relations.add(Relationships.SUCCESS);
-        relations.add(Relationships.FAILURE);
+        relations.add(SUCCESS);
+        relations.add(FAILURE);
         relationships = Collections.unmodifiableSet(relations);
     }
 
@@ -52,12 +45,6 @@ public class CacheDelete extends AbstractProcessor {
     }
 
     @Override
-    protected void init(ProcessorInitializationContext context) {
-        super.init(context);
-        mapper = new ObjectMapper();
-    }
-
-    @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
         final FlowFile flowFile = session.get();
         if (flowFile == null) {
@@ -65,15 +52,13 @@ public class CacheDelete extends AbstractProcessor {
         }
 
         final ComponentLog logger = getLogger();
-        final Cache cache = context.getProperty(Properties.CACHE).asControllerService(Cache.class);
-        final String keyField = context.getProperty(Properties.KEY_FIELD).getValue();
-        String serializerType = context.getProperty(Properties.SERIALIZER).getValue();
-        Serializer<String> serializer;
+        final Cache cache = context.getProperty(CACHE).asControllerService(Cache.class);
+        final String keyField = context.getProperty(KEY_FIELD).getValue();
+        final Serializer<JsonNode> serializer = getSerializer(context.getProperty(SERIALIZER));
+        final Deserializer<JsonNode> deserializer = getDeserializer(context.getProperty(DESERIALIZER));
 
-        if (Properties.STRING_SERIALIZER.getValue().equals(serializerType)) {
-            serializer = new StringSerializer();
-        } else {
-            logger.error("Serializer is incorrect");
+        if (serializer == null || deserializer == null) {
+            logger.error("Please, specify correct serializer/deserializer classes");
             session.transfer(flowFile, FAILURE);
             return;
         }
@@ -83,13 +68,15 @@ public class CacheDelete extends AbstractProcessor {
                 try(BufferedInputStream bin = new BufferedInputStream(in)) {
                     byte[] bytes = new byte[bin.available()];
                     bin.read(bytes);
-                    JsonNode node = mapper.readTree(bytes);
+                    JsonNode node = deserializer.deserialize(bytes);
+                    FlowFile copy = session.create(flowFile);
 
                     if (node.hasNonNull(keyField)) {
-                        cache.delete(node.get(keyField).asText(), serializer);
+                        cache.delete(node.get(keyField), serializer);
+                        session.transfer(copy, SUCCESS);
                     } else {
-                        logger.error("Flowfile {} does not have key field: {}", new Object[]{flowFile, keyField});
-                        session.transfer(flowFile, FAILURE);
+                        logger.error("Flowfile {} does not has key field: {}", new Object[]{flowFile, keyField});
+                        session.transfer(copy, FAILURE);
                     }
                 }
             });
@@ -98,7 +85,6 @@ public class CacheDelete extends AbstractProcessor {
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage());
             session.transfer(flowFile, FAILURE);
-            return;
         }
     }
 }
