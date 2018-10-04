@@ -1,10 +1,9 @@
 package com.github.gr1f0n6x.service.redispool;
 
 import com.github.gr1f0n6x.service.common.*;
-import com.github.gr1f0n6x.service.redispool.service.RedisCommandsService;
+import com.github.gr1f0n6x.service.redispool.service.RedisCommandService;
 import com.github.gr1f0n6x.service.redispool.service.RedisPoolService;
 import org.apache.nifi.components.PropertyDescriptor;
-import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.processor.AbstractProcessor;
 import org.apache.nifi.processor.ProcessContext;
@@ -29,7 +28,7 @@ import java.nio.channels.SocketChannel;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 
-public class RedisCommandsTest {
+public class RedisCommandTest {
     private TestRunner runner;
     private RedisServer server;
     private int port;
@@ -61,10 +60,10 @@ public class RedisCommandsTest {
     @Test
     public void testCommands() {
         RedisPoolService pool = null;
-        RedisCommandsService commands = null;
+        RedisCommandService commands = null;
         try {
             pool = new RedisPoolService();
-            commands = new RedisCommandsService();
+            commands = new RedisCommandService();
 
             runner.addControllerService("redis-pool", pool);
             runner.setProperty(pool, RedisPoolService.HOST, "localhost");
@@ -72,7 +71,7 @@ public class RedisCommandsTest {
             runner.enableControllerService(pool);
 
             runner.addControllerService("redis-commands", commands);
-            runner.setProperty(commands, RedisCommandsService.REDIS_CONNECTION_POOL, "redis-pool");
+            runner.setProperty(commands, RedisCommandService.REDIS_CONNECTION_POOL, "redis-pool");
             runner.enableControllerService(commands);
 
             runner.setProperty(Processor.CACHE, "redis-commands");
@@ -118,7 +117,7 @@ public class RedisCommandsTest {
 
             final Serializer<String> stringSerializer = new StringSerializer();
             final Deserializer<String> stringDeserializer = new StringDeserializer();
-            final RedisCommands cacheClient = context.getProperty(CACHE).asControllerService(RedisCommands.class);
+            final RedisCommand cacheClient = context.getProperty(CACHE).asControllerService(RedisCommand.class);
 
             try {
                 String key = "key";
@@ -139,14 +138,14 @@ public class RedisCommandsTest {
         }
     }
 
-    public static class StringSerializer extends AbstractControllerService implements Serializer<String> {
+    public static class StringSerializer implements Serializer<String> {
         @Override
-        public void serialize(String o, OutputStream out) throws IOException {
-            out.write(o.getBytes(StandardCharsets.UTF_8));
+        public byte[] serialize(String o) throws IOException {
+            return new byte[0];
         }
     }
 
-    public static class StringDeserializer extends AbstractControllerService implements Deserializer<String> {
+    public static class StringDeserializer implements Deserializer<String> {
         @Override
         public String deserialize(byte[] bytes) {
             return bytes != null ? new String(bytes, StandardCharsets.UTF_8) : null;

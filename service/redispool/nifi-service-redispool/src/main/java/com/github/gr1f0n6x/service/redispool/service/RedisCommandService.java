@@ -2,9 +2,8 @@ package com.github.gr1f0n6x.service.redispool.service;
 
 import com.github.gr1f0n6x.service.common.Deserializer;
 import com.github.gr1f0n6x.service.common.Serializer;
-import com.github.gr1f0n6x.service.redispool.RedisCommands;
+import com.github.gr1f0n6x.service.redispool.RedisCommand;
 import com.github.gr1f0n6x.service.redispool.RedisPool;
-import com.github.gr1f0n6x.service.redispool.util.RedisAction;
 import org.apache.nifi.annotation.documentation.CapabilityDescription;
 import org.apache.nifi.annotation.documentation.Tags;
 import org.apache.nifi.annotation.lifecycle.OnDisabled;
@@ -12,29 +11,20 @@ import org.apache.nifi.annotation.lifecycle.OnEnabled;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.controller.AbstractControllerService;
 import org.apache.nifi.controller.ConfigurationContext;
-import org.apache.nifi.processor.util.StandardValidators;
 import redis.clients.jedis.Jedis;
 
 import java.io.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
-@Tags({"redis", "pool", "cache"})
+@Tags({"redis", "pool", "cache", "ttl"})
 @CapabilityDescription("Provides a controller service to execute operations on redis cache.")
-public class RedisCommandsService extends AbstractControllerService implements RedisCommands {
+public class RedisCommandService extends AbstractControllerService implements RedisCommand {
     public static final PropertyDescriptor REDIS_CONNECTION_POOL = new PropertyDescriptor.Builder()
             .name("Redis connection pool")
             .identifiesControllerService(RedisPool.class)
             .required(true)
-            .build();
-
-    public static final PropertyDescriptor TTL = new PropertyDescriptor.Builder()
-            .name("TTL")
-            .addValidator(StandardValidators.TIME_PERIOD_VALIDATOR)
-            .required(true)
-            .defaultValue("0 secs")
             .build();
 
     private static List<PropertyDescriptor> descriptors;
@@ -42,13 +32,11 @@ public class RedisCommandsService extends AbstractControllerService implements R
     static {
         List<PropertyDescriptor> props = new ArrayList<>();
         props.add(REDIS_CONNECTION_POOL);
-        props.add(TTL);
 
         descriptors = Collections.unmodifiableList(props);
     }
 
     private volatile RedisPool pool;
-    private Long ttl;
 
     @Override
     protected List<PropertyDescriptor> getSupportedPropertyDescriptors() {
@@ -58,11 +46,6 @@ public class RedisCommandsService extends AbstractControllerService implements R
     @OnEnabled
     public void enable(final ConfigurationContext context) {
         pool = context.getProperty(REDIS_CONNECTION_POOL).asControllerService(RedisPool.class);
-        ttl = context.getProperty(TTL).asTimePeriod(TimeUnit.SECONDS);
-
-        if (ttl == 0L) {
-            ttl = -1L;
-        }
     }
 
     @OnDisabled
@@ -84,10 +67,6 @@ public class RedisCommandsService extends AbstractControllerService implements R
         return execute(client -> {
             byte[] keyBytes = kSerializer.serialize(key);
             byte[] valueBytes = vSerializer.serialize(value);
-
-            if (ttl != -1L) {
-                client.expire(keyBytes, Math.toIntExact(ttl));
-            }
 
             return client.set(keyBytes, valueBytes);
         });
@@ -112,9 +91,25 @@ public class RedisCommandsService extends AbstractControllerService implements R
         });
     }
 
-    private <T> T execute(RedisAction<T> action) throws IOException {
+    @Override
+    public <K, V> String set(K key, V value, int ttl, Serializer<K> kSerializer, Serializer<V> vSerializer) throws IOException {
+        return execute(client -> {
+            byte[] keyBytes = kSerializer.serialize(key);
+            byte[] valueBytes = vSerializer.serialize(value);
+            String result = client.set(keyBytes, valueBytes);
+            client.expire(keyBytes, ttl);
+
+            return result;
+        });
+    }
+
+    private <T> T execute(Action<T> action) throws IOException {
         try (Jedis client = pool.getConnection()) {
             return action.execute(client);
         }
+    }
+
+    private interface Action<T> {
+        T execute(Jedis client) throws IOException;
     }
 }
