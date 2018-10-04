@@ -1,27 +1,28 @@
 package com.github.gr1f0n6x.processor.cache.processor;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.gr1f0n6x.service.common.*;
-import org.apache.nifi.annotation.documentation.Tags;
+import com.github.gr1f0n6x.service.common.Deserializer;
+import com.github.gr1f0n6x.service.common.ExpirableCache;
+import com.github.gr1f0n6x.service.common.Serializer;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.flowfile.FlowFile;
 import org.apache.nifi.logging.ComponentLog;
-import org.apache.nifi.processor.*;
+import org.apache.nifi.processor.ProcessContext;
+import org.apache.nifi.processor.ProcessSession;
+import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.exception.ProcessException;
 
 import java.io.BufferedInputStream;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
-
-@Tags({"cache", "put", "json"})
-public class CachePut extends CacheBase {
+public class CachePutExpirable extends CachePut {
     private static List<PropertyDescriptor> descriptors;
     private static Set<Relationship> relationships;
 
     static {
         List<PropertyDescriptor> props = new ArrayList<>();
-        props.add(CACHE);
+        props.add(EXPIRABLE_CACHE);
         props.add(KEY_FIELD);
         props.add(SERIALIZER);
         props.add(DESERIALIZER);
@@ -52,10 +53,11 @@ public class CachePut extends CacheBase {
         }
 
         final ComponentLog logger = getLogger();
-        final Cache cache = context.getProperty(CACHE).asControllerService(ExpirableCache.class);
+        final ExpirableCache cache = context.getProperty(CACHE).asControllerService(ExpirableCache.class);
         final String keyField = context.getProperty(KEY_FIELD).getValue();
         final Serializer<JsonNode> serializer = getSerializer(context.getProperty(SERIALIZER));
         final Deserializer<JsonNode> deserializer = getDeserializer(context.getProperty(DESERIALIZER));
+        final int seconds = Math.toIntExact(context.getProperty(TTL).asTimePeriod(TimeUnit.SECONDS));
 
         if (serializer == null || deserializer == null) {
             logger.error("Please, specify correct serializer/deserializer classes");
@@ -72,7 +74,11 @@ public class CachePut extends CacheBase {
                     FlowFile copy = session.create(flowFile);
 
                     if (node.hasNonNull(keyField)) {
-                        cache.set(node.get(keyField), node, serializer, serializer);
+                        if (seconds <= 0) {
+                            cache.set(node.get(keyField), node, serializer, serializer);
+                        } else {
+                            cache.set(node.get(keyField), node, seconds, serializer, serializer);
+                        }
                         session.transfer(copy, SUCCESS);
                     } else {
                         logger.error("Flowfile {} does not has key field: {}", new Object[]{flowFile, keyField});

@@ -23,6 +23,7 @@ public class CacheGet extends CacheBase {
         props.add(KEY_FIELD);
         props.add(SERIALIZER);
         props.add(DESERIALIZER);
+        props.add(VALUE_JOINER);
         descriptors = Collections.unmodifiableList(props);
 
         Set<Relationship> relations = new HashSet<>();
@@ -53,6 +54,7 @@ public class CacheGet extends CacheBase {
         final String keyField = context.getProperty(KEY_FIELD).getValue();
         final Serializer<JsonNode> serializer = getSerializer(context.getProperty(SERIALIZER));
         final Deserializer<JsonNode> deserializer = getDeserializer(context.getProperty(DESERIALIZER));
+        final ValueJoiner<JsonNode, JsonNode, JsonNode> joiner = getValueJoiner(context.getProperty(VALUE_JOINER));
 
         if (serializer == null || deserializer == null) {
             logger.error("Please, specify correct serializer/deserializer classes");
@@ -71,7 +73,7 @@ public class CacheGet extends CacheBase {
 
                     if (node.hasNonNull(keyField)) {
                         JsonNode value = cache.get(node.get(keyField), serializer, deserializer);
-                        bout.write(serializer.serialize(value));
+                        bout.write(serializer.serialize(joiner.join(node, value)));
                     } else {
                         logger.error("Flowfile {} does not has key field: {}", new Object[]{flowFile, keyField});
                         session.transfer(file, FAILURE);

@@ -1,11 +1,10 @@
 package com.github.gr1f0n6x.processor.cache.processor;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.github.gr1f0n6x.service.common.Cache;
-import com.github.gr1f0n6x.service.common.Deserializer;
-import com.github.gr1f0n6x.service.common.Serializer;
+import com.github.gr1f0n6x.service.common.*;
 import com.github.gr1f0n6x.service.common.deserializer.JsonDeserializer;
 import com.github.gr1f0n6x.service.common.serializer.JsonSerializer;
+import com.github.gr1f0n6x.service.common.transform.SimpleJsonMerge;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
@@ -17,11 +16,21 @@ import org.apache.nifi.processor.util.StandardValidators;
 
 @InputRequirement(InputRequirement.Requirement.INPUT_REQUIRED)
 public abstract class CacheBase extends AbstractProcessor {
+    public static final AllowableValue SIMPLE_JSON_MERGE = new AllowableValue(SimpleJsonMerge.class.getName(),
+            SimpleJsonMerge.class.getSimpleName(), "Simple Json merger");
+
     public static final AllowableValue JSON_SERIALIZER = new AllowableValue(JsonSerializer.class.getName(),
             JsonSerializer.class.getSimpleName(), "Json serializer");
 
     public static final AllowableValue JSON_DESERIALIZER = new AllowableValue(JsonDeserializer.class.getName(),
             JsonDeserializer.class.getSimpleName(), "Json deserializer");
+
+    public static final PropertyDescriptor EXPIRABLE_CACHE = new PropertyDescriptor.Builder()
+            .name("Expirable Cache provider")
+            .required(true)
+            .identifiesControllerService(ExpirableCache.class)
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
 
     public static final PropertyDescriptor CACHE = new PropertyDescriptor.Builder()
             .name("Cache provider")
@@ -42,6 +51,14 @@ public abstract class CacheBase extends AbstractProcessor {
             .required(true)
             .allowableValues(JSON_SERIALIZER)
             .defaultValue(JSON_SERIALIZER.getValue())
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .build();
+
+    public static final PropertyDescriptor VALUE_JOINER = new PropertyDescriptor.Builder()
+            .name("Value joiner")
+            .required(true)
+            .allowableValues(SIMPLE_JSON_MERGE)
+            .defaultValue(SIMPLE_JSON_MERGE.getValue())
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
@@ -91,6 +108,14 @@ public abstract class CacheBase extends AbstractProcessor {
     protected final Deserializer<JsonNode> getDeserializer(PropertyValue value) {
         if (JSON_DESERIALIZER.getValue().equals(value.getValue())) {
             return new JsonDeserializer();
+        }
+
+        return null;
+    }
+
+    protected final ValueJoiner<JsonNode, JsonNode, JsonNode> getValueJoiner(PropertyValue value) {
+        if (SIMPLE_JSON_MERGE.getValue().equals(value.getValue())) {
+            return new SimpleJsonMerge();
         }
 
         return null;

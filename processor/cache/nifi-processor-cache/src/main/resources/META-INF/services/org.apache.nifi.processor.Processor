@@ -15,4 +15,5 @@
 com.github.gr1f0n6x.processor.cache.processor.CachePut
 com.github.gr1f0n6x.processor.cache.processor.CacheDelete
 com.github.gr1f0n6x.processor.cache.processor.CacheGet
+com.github.gr1f0n6x.processor.cache.processor.CachePutExpirable
 com.github.gr1f0n6x.processor.cache.processor.CacheLookup
