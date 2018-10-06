@@ -11,6 +11,7 @@ import org.apache.nifi.processor.exception.ProcessException;
 
 import java.io.*;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Tags({"cache", "get", "json"})
 public class CacheGet extends CacheBase {
@@ -24,6 +25,7 @@ public class CacheGet extends CacheBase {
         props.add(SERIALIZER);
         props.add(DESERIALIZER);
         props.add(VALUE_JOINER);
+        props.add(BATCH_SIZE);
         descriptors = Collections.unmodifiableList(props);
 
         Set<Relationship> relations = new HashSet<>();
@@ -44,47 +46,48 @@ public class CacheGet extends CacheBase {
 
     @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
-        final FlowFile flowFile = session.get();
-        if (flowFile == null) {
+        final int batch = context.getProperty(BATCH_SIZE).asInteger();
+
+        final List<FlowFile> flowFiles = session.get(batch);
+        if (flowFiles.isEmpty()) {
             return;
         }
 
         final ComponentLog logger = getLogger();
         final Cache cache = context.getProperty(CACHE).asControllerService(Cache.class);
         final String keyField = context.getProperty(KEY_FIELD).getValue();
-        final Serializer<JsonNode> serializer = getSerializer(context.getProperty(SERIALIZER));
-        final Deserializer<JsonNode> deserializer = getDeserializer(context.getProperty(DESERIALIZER));
-        final ValueJoiner<JsonNode, JsonNode, JsonNode> joiner = getValueJoiner(context.getProperty(VALUE_JOINER));
+        final Serializer<JsonNode> serializer = getSerializer(context);
+        final Deserializer<JsonNode> deserializer = getDeserializer(context);
+        final ValueJoiner<JsonNode, JsonNode, JsonNode> joiner = getValueJoiner(context);
 
-        if (serializer == null || deserializer == null) {
+        if (serializer == null || deserializer == null || joiner == null) {
             logger.error("Please, specify correct serializer/deserializer classes");
-            session.transfer(flowFile, FAILURE);
+            session.transfer(flowFiles, FAILURE);
             return;
         }
 
+
         try {
-            FlowFile result = session.write(flowFile, (in, out) -> {
+            List<FlowFile> joined = flowFiles.stream().map(flowFile -> session.write(flowFile, (in, out) -> {
                 try(BufferedInputStream bin = new BufferedInputStream(in);
-                BufferedOutputStream bout = new BufferedOutputStream(out)) {
+                    BufferedOutputStream bout = new BufferedOutputStream(out)) {
                     byte[] bytes = new byte[bin.available()];
                     bin.read(bytes);
                     JsonNode node = deserializer.deserialize(bytes);
-                    FlowFile file = session.create(flowFile);
 
                     if (node.hasNonNull(keyField)) {
                         JsonNode value = cache.get(node.get(keyField), serializer, deserializer);
                         bout.write(serializer.serialize(joiner.join(node, value)));
                     } else {
                         logger.error("Flowfile {} does not has key field: {}", new Object[]{flowFile, keyField});
-                        session.transfer(file, FAILURE);
                     }
                 }
-            });
+            })).collect(Collectors.toList());
 
-            session.transfer(result, SUCCESS);
+            session.transfer(joined, SUCCESS);
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage());
-            session.transfer(flowFile, FAILURE);
+            session.transfer(flowFiles, FAILURE);
         }
     }
 }

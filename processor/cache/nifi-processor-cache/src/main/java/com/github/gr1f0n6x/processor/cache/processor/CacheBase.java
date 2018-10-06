@@ -6,10 +6,12 @@ import com.github.gr1f0n6x.service.common.deserializer.JsonDeserializer;
 import com.github.gr1f0n6x.service.common.serializer.JsonSerializer;
 import com.github.gr1f0n6x.service.common.transform.SimpleJsonMerge;
 import org.apache.nifi.annotation.behavior.InputRequirement;
+import org.apache.nifi.annotation.lifecycle.OnStopped;
 import org.apache.nifi.components.AllowableValue;
 import org.apache.nifi.components.PropertyDescriptor;
 import org.apache.nifi.components.PropertyValue;
 import org.apache.nifi.processor.AbstractProcessor;
+import org.apache.nifi.processor.ProcessContext;
 import org.apache.nifi.processor.Relationship;
 import org.apache.nifi.processor.util.StandardValidators;
 
@@ -77,6 +79,14 @@ public abstract class CacheBase extends AbstractProcessor {
             .defaultValue("0 secs")
             .build();
 
+    public static final PropertyDescriptor BATCH_SIZE = new PropertyDescriptor.Builder()
+            .name("Batch size")
+            .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
+            .addValidator(StandardValidators.POSITIVE_INTEGER_VALIDATOR)
+            .required(true)
+            .defaultValue("10")
+            .build();
+
     public static final Relationship SUCCESS = new Relationship.Builder()
             .name("success")
             .build();
@@ -93,28 +103,41 @@ public abstract class CacheBase extends AbstractProcessor {
             .name("not exist")
             .build();
 
-    public static final Relationship ORIGINAL = new Relationship.Builder()
-            .name("original")
-            .build();
+    protected Serializer<JsonNode> serializer;
+    protected Deserializer<JsonNode> deserializer;
+    protected ValueJoiner<JsonNode, JsonNode, JsonNode> joiner;
 
-    protected final Serializer<JsonNode> getSerializer(PropertyValue value) {
-        if (JSON_SERIALIZER.getValue().equals(value.getValue())) {
+    @OnStopped
+    public void close() {
+        serializer = null;
+        deserializer = null;
+        joiner = null;
+    }
+
+    protected final Serializer<JsonNode> getSerializer(ProcessContext context) {
+        if (serializer != null) {
+            return serializer;
+        } else if (JSON_SERIALIZER.getValue().equals(context.getProperty(SERIALIZER).getValue())) {
             return new JsonSerializer();
         }
 
         return null;
     }
 
-    protected final Deserializer<JsonNode> getDeserializer(PropertyValue value) {
-        if (JSON_DESERIALIZER.getValue().equals(value.getValue())) {
+    protected final Deserializer<JsonNode> getDeserializer(ProcessContext context) {
+        if (deserializer != null) {
+            return deserializer;
+        } else if (JSON_DESERIALIZER.getValue().equals(context.getProperty(DESERIALIZER).getValue())) {
             return new JsonDeserializer();
         }
 
         return null;
     }
 
-    protected final ValueJoiner<JsonNode, JsonNode, JsonNode> getValueJoiner(PropertyValue value) {
-        if (SIMPLE_JSON_MERGE.getValue().equals(value.getValue())) {
+    protected final ValueJoiner<JsonNode, JsonNode, JsonNode> getValueJoiner(ProcessContext context) {
+        if (joiner != null) {
+            return joiner;
+        } else if (SIMPLE_JSON_MERGE.getValue().equals(context.getProperty(VALUE_JOINER).getValue())) {
             return new SimpleJsonMerge();
         }
 

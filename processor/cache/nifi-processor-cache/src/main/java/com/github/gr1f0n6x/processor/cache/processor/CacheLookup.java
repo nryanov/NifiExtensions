@@ -11,7 +11,8 @@ import org.apache.nifi.logging.ComponentLog;
 import org.apache.nifi.processor.*;
 import org.apache.nifi.processor.exception.ProcessException;
 
-import java.io.BufferedInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
 import java.util.*;
 
 
@@ -26,11 +27,11 @@ public class CacheLookup extends CacheBase {
         props.add(KEY_FIELD);
         props.add(SERIALIZER);
         props.add(DESERIALIZER);
+        props.add(BATCH_SIZE);
         descriptors = Collections.unmodifiableList(props);
 
         Set<Relationship> relations = new HashSet<>();
         relations.add(EXIST);
-        relations.add(ORIGINAL);
         relations.add(NOT_EXIST);
         relations.add(FAILURE);
         relationships = Collections.unmodifiableSet(relations);
@@ -48,48 +49,46 @@ public class CacheLookup extends CacheBase {
 
     @Override
     public void onTrigger(ProcessContext context, ProcessSession session) throws ProcessException {
-        final FlowFile flowFile = session.get();
-        if (flowFile == null) {
+        final int batch = context.getProperty(BATCH_SIZE).asInteger();
+
+        final List<FlowFile> flowFiles = session.get(batch);
+        if (flowFiles.isEmpty()) {
             return;
         }
 
         final ComponentLog logger = getLogger();
         final Cache cache = context.getProperty(CACHE).asControllerService(Cache.class);
         final String keyField = context.getProperty(KEY_FIELD).getValue();
-        final Serializer<JsonNode> serializer = getSerializer(context.getProperty(SERIALIZER));
-        final Deserializer<JsonNode> deserializer = getDeserializer(context.getProperty(DESERIALIZER));
+        final Serializer<JsonNode> serializer = getSerializer(context);
+        final Deserializer<JsonNode> deserializer = getDeserializer(context);
 
         if (serializer == null || deserializer == null) {
             logger.error("Please, specify correct serializer/deserializer classes");
-            session.transfer(flowFile, FAILURE);
+            session.transfer(flowFiles, FAILURE);
             return;
         }
 
-        try {
-            session.read(flowFile, in -> {
-                try(BufferedInputStream bin = new BufferedInputStream(in)) {
-                    byte[] bytes = new byte[bin.available()];
-                    bin.read(bytes);
-                    JsonNode node = deserializer.deserialize(bytes);
-                    FlowFile file = session.create(flowFile);
+        flowFiles.forEach(f -> {
+            try {
+                ByteArrayOutputStream bout = new ByteArrayOutputStream();
+                session.exportTo(f, bout);
+                bout.close();
 
-                    if (node.hasNonNull(keyField)) {
-                        if (cache.exists(node.get(keyField), serializer)) {
-                            session.transfer(file, EXIST);
-                        } else {
-                            session.transfer(file, NOT_EXIST);
-                        }
+                JsonNode node = deserializer.deserialize(bout.toByteArray());
+                if (node.hasNonNull(keyField)) {
+                    if (cache.exists(node.get(keyField), serializer)) {
+                        session.transfer(f, EXIST);
                     } else {
-                        logger.error("Flowfile {} does not has key field: {}", new Object[]{flowFile, keyField});
-                        session.transfer(file, FAILURE);
+                        session.transfer(f, NOT_EXIST);
                     }
+                } else {
+                    logger.error("Flowfile {} does not has key field: {}", new Object[]{f, keyField});
+                    session.transfer(f, FAILURE);
                 }
-            });
-
-            session.transfer(flowFile, ORIGINAL);
-        } catch (Exception e) {
-            logger.error(e.getLocalizedMessage());
-            session.transfer(flowFile, FAILURE);
-        }
+            } catch (IOException e) {
+                logger.error(e.getLocalizedMessage());
+                session.transfer(f, FAILURE);
+            }
+        });
     }
 }
