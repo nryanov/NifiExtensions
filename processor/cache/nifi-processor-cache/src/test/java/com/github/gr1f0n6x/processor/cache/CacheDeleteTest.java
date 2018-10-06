@@ -1,28 +1,37 @@
 package com.github.gr1f0n6x.processor.cache;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.gr1f0n6x.processor.cache.processor.CacheBase;
-import com.github.gr1f0n6x.processor.cache.processor.CachePut;
+import com.github.gr1f0n6x.processor.cache.processor.CacheDelete;
 import org.apache.nifi.reporting.InitializationException;
 import org.apache.nifi.util.TestRunner;
 import org.apache.nifi.util.TestRunners;
 import org.junit.Before;
 import org.junit.Test;
 
+import java.io.IOException;
+
 import static org.junit.Assert.*;
 
-public class CachePutTest {
+
+public class CacheDeleteTest {
     private TestRunner runner;
-    private CachePut cachePut;
+    private CacheDelete cacheDelete;
 
     @Before
     public void init() {
-        cachePut = new CachePut();
-        runner = TestRunners.newTestRunner(cachePut);
+        cacheDelete = new CacheDelete();
+        runner = TestRunners.newTestRunner(cacheDelete);
     }
 
     @Test
-    public void putSuccess() throws InitializationException {
+    public void deleteSuccess() throws InitializationException, IOException {
         InMemoryCache cache = new InMemoryCache();
+        ObjectMapper mapper = new ObjectMapper();
+        cache.map.put(mapper.createObjectNode().put("key", 1).get("key"), null);
+        assertTrue(!cache.map.isEmpty());
+
         runner.addControllerService("cache-provider", cache);
         runner.enableControllerService(cache);
         runner.setProperty(CacheBase.CACHE, "cache-provider");
@@ -34,12 +43,16 @@ public class CachePutTest {
 
         runner.assertTransferCount(CacheBase.SUCCESS, 1);
         runner.assertQueueEmpty();
-        assertTrue(!cache.map.isEmpty());
+        assertTrue(cache.map.isEmpty());
     }
 
     @Test
-    public void putFailure() throws InitializationException {
+    public void deleteError() throws InitializationException, JsonProcessingException {
         InMemoryCache cache = new InMemoryCache();
+        ObjectMapper mapper = new ObjectMapper();
+        cache.map.put(mapper.createObjectNode().put("key", 1).get("key"), null);
+        assertTrue(!cache.map.isEmpty());
+
         runner.addControllerService("cache-provider", cache);
         runner.enableControllerService(cache);
         runner.setProperty(CacheBase.SERIALIZER, CacheBase.JSON_SERIALIZER);
@@ -51,6 +64,6 @@ public class CachePutTest {
 
         runner.assertTransferCount(CacheBase.FAILURE, 1);
         runner.assertQueueEmpty();
-        assertTrue(cache.map.isEmpty());
+        assertTrue(!cache.map.isEmpty());
     }
 }
