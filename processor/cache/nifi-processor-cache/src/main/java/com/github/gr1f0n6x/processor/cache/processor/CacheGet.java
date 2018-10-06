@@ -31,6 +31,7 @@ public class CacheGet extends CacheBase {
         Set<Relationship> relations = new HashSet<>();
         relations.add(SUCCESS);
         relations.add(FAILURE);
+        relations.add(ORIGINAL);
         relationships = Collections.unmodifiableSet(relations);
     }
 
@@ -68,23 +69,30 @@ public class CacheGet extends CacheBase {
 
 
         try {
-            List<FlowFile> joined = flowFiles.stream().map(flowFile -> session.write(flowFile, (in, out) -> {
-                try(BufferedInputStream bin = new BufferedInputStream(in);
-                    BufferedOutputStream bout = new BufferedOutputStream(out)) {
-                    byte[] bytes = new byte[bin.available()];
-                    bin.read(bytes);
-                    JsonNode node = deserializer.deserialize(bytes);
-
+            flowFiles.forEach(f -> {
+                try {
+                    ByteArrayOutputStream bout = new ByteArrayOutputStream();
+                    session.exportTo(f, bout);
+                    bout.close();
+                    JsonNode node = deserializer.deserialize(bout.toByteArray());
                     if (node.hasNonNull(keyField)) {
                         JsonNode value = cache.get(node.get(keyField), serializer, deserializer);
-                        bout.write(serializer.serialize(joiner.join(node, value)));
+                        ByteArrayOutputStream newFile = new ByteArrayOutputStream();
+                        newFile.write(serializer.serialize(joiner.join(value, node)));
+                        newFile.close();
+                        FlowFile result = session.importFrom(new ByteArrayInputStream(newFile.toByteArray()), session.create());
+                        session.transfer(result, SUCCESS);
+                        session.transfer(f, ORIGINAL);
                     } else {
-                        logger.error("Flowfile {} does not has key field: {}", new Object[]{flowFile, keyField});
+                        logger.error("Flowfile {} does not has key field: {}", new Object[]{f, keyField});
+                        session.transfer(f, FAILURE);
                     }
-                }
-            })).collect(Collectors.toList());
 
-            session.transfer(joined, SUCCESS);
+                } catch (IOException e) {
+                    logger.error(e.getLocalizedMessage());
+                    session.transfer(f, FAILURE);
+                }
+            });
         } catch (Exception e) {
             logger.error(e.getLocalizedMessage());
             session.transfer(flowFiles, FAILURE);

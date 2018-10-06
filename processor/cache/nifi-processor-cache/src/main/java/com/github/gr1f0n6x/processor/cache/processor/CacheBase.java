@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.github.gr1f0n6x.service.common.*;
 import com.github.gr1f0n6x.service.common.deserializer.JsonDeserializer;
 import com.github.gr1f0n6x.service.common.serializer.JsonSerializer;
+import com.github.gr1f0n6x.service.common.transform.IdentityJson;
 import com.github.gr1f0n6x.service.common.transform.SimpleJsonMerge;
 import org.apache.nifi.annotation.behavior.InputRequirement;
 import org.apache.nifi.annotation.lifecycle.OnStopped;
@@ -20,6 +21,9 @@ import org.apache.nifi.processor.util.StandardValidators;
 public abstract class CacheBase extends AbstractProcessor {
     public static final AllowableValue SIMPLE_JSON_MERGE = new AllowableValue(SimpleJsonMerge.class.getName(),
             SimpleJsonMerge.class.getSimpleName(), "Simple Json merger");
+
+    public static final AllowableValue IDENTITY_JSON = new AllowableValue(IdentityJson.class.getName(),
+            IdentityJson.class.getSimpleName(), "Use value from cache");
 
     public static final AllowableValue JSON_SERIALIZER = new AllowableValue(JsonSerializer.class.getName(),
             JsonSerializer.class.getSimpleName(), "Json serializer");
@@ -59,8 +63,8 @@ public abstract class CacheBase extends AbstractProcessor {
     public static final PropertyDescriptor VALUE_JOINER = new PropertyDescriptor.Builder()
             .name("Value joiner")
             .required(true)
-            .allowableValues(SIMPLE_JSON_MERGE)
-            .defaultValue(SIMPLE_JSON_MERGE.getValue())
+            .allowableValues(IDENTITY_JSON)
+            .defaultValue(IDENTITY_JSON.getValue())
             .addValidator(StandardValidators.NON_EMPTY_VALIDATOR)
             .build();
 
@@ -89,6 +93,10 @@ public abstract class CacheBase extends AbstractProcessor {
 
     public static final Relationship SUCCESS = new Relationship.Builder()
             .name("success")
+            .build();
+
+    public static final Relationship ORIGINAL = new Relationship.Builder()
+            .name("original")
             .build();
 
     public static final Relationship FAILURE = new Relationship.Builder()
@@ -139,6 +147,8 @@ public abstract class CacheBase extends AbstractProcessor {
             return joiner;
         } else if (SIMPLE_JSON_MERGE.getValue().equals(context.getProperty(VALUE_JOINER).getValue())) {
             return new SimpleJsonMerge();
+        } else if (IDENTITY_JSON.getValue().equals(context.getProperty(VALUE_JOINER).getValue())) {
+            return new IdentityJson();
         }
 
         return null;

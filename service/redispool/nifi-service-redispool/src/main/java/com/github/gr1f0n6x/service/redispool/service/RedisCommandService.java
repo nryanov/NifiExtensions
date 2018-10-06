@@ -63,21 +63,23 @@ public class RedisCommandService extends AbstractControllerService implements Re
     }
 
     @Override
-    public <K, V> String set(K key, V value, Serializer<K> kSerializer, Serializer<V> vSerializer) throws IOException {
-        return execute(client -> {
+    public <K, V> void set(K key, V value, Serializer<K> kSerializer, Serializer<V> vSerializer) throws IOException {
+        execute(client -> {
             byte[] keyBytes = kSerializer.serialize(key);
             byte[] valueBytes = vSerializer.serialize(value);
+            client.set(keyBytes, valueBytes);
 
-            return client.set(keyBytes, valueBytes);
+            return Void.TYPE;
         });
     }
 
     @Override
-    public <K> Long delete(K key, Serializer<K> serializer) throws IOException {
-        return execute(client -> {
+    public <K> void delete(K key, Serializer<K> serializer) throws IOException {
+        execute(client -> {
             byte[] keyBytes = serializer.serialize(key);
+            client.del(keyBytes);
 
-            return client.del(keyBytes);
+            return Void.TYPE;
         });
     }
 
@@ -92,14 +94,14 @@ public class RedisCommandService extends AbstractControllerService implements Re
     }
 
     @Override
-    public <K, V> String set(K key, V value, int ttl, Serializer<K> kSerializer, Serializer<V> vSerializer) throws IOException {
-        return execute(client -> {
+    public <K, V> void set(K key, V value, int ttl, Serializer<K> kSerializer, Serializer<V> vSerializer) throws IOException {
+        execute(client -> {
             byte[] keyBytes = kSerializer.serialize(key);
             byte[] valueBytes = vSerializer.serialize(value);
-            String result = client.set(keyBytes, valueBytes);
+            client.set(keyBytes, valueBytes);
             client.expire(keyBytes, ttl);
 
-            return result;
+            return Void.TYPE;
         });
     }
 
