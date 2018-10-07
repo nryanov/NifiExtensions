@@ -30,6 +30,7 @@
         <module>common</module>
         <module>redispool</module>
         <module>memcached</module>
+        <module>tarantool</module>
     </modules>
 
     <dependencies>
