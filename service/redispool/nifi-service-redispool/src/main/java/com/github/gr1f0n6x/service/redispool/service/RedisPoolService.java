@@ -135,14 +135,19 @@ public class RedisPoolService extends AbstractControllerService implements Redis
 
     @OnDisabled
     public void disable() {
-        if (pool != null) {
-            pool.close();
-        }
+        close();
     }
 
     @OnShutdown
     public void shutdownHook(final ConfigurationContext context) {
-        pool.close();
+        close();
+    }
+
+    private void close() {
+        if (pool != null) {
+            pool.close();
+        }
+        pool = null;
     }
 
     @Override

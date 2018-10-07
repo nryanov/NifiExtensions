@@ -27,8 +27,9 @@
     <packaging>pom</packaging>
 
     <modules>
-        <module>redispool</module>
         <module>common</module>
+        <module>redispool</module>
+        <module>memcached</module>
     </modules>
 
     <dependencies>
