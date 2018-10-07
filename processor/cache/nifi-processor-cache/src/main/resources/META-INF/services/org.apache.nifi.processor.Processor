@@ -12,8 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-com.github.gr1f0n6x.processor.cache.processor.CachePut
-com.github.gr1f0n6x.processor.cache.processor.CacheDelete
-com.github.gr1f0n6x.processor.cache.processor.CacheGet
-com.github.gr1f0n6x.processor.cache.processor.CachePutExpirable
-com.github.gr1f0n6x.processor.cache.processor.CacheLookup
+com.github.gr1f0n6x.nifi.processor.cache.processor.CachePut
+com.github.gr1f0n6x.nifi.processor.cache.processor.CacheDelete
+com.github.gr1f0n6x.nifi.processor.cache.processor.CacheGet
+com.github.gr1f0n6x.nifi.processor.cache.processor.CachePutExpirable
+com.github.gr1f0n6x.nifi.processor.cache.processor.CacheLookup
